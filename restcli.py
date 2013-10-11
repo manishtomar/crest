@@ -61,9 +61,16 @@ class RestCLI(object):
         parts = extra[0].split('.')
         while parts:
             part = parts.pop(0)
+            # Check of array
+            m = re.match('(.+)\[(\d+)\]$', part)
+            if m:
+                part = m.groups()[0]
+                index = int(m.groups()[1])
             value = body.get(part)
             if isinstance(value, dict) and parts:
                 body = value
+            elif isinstance(value, list) and parts:
+                body = value[index]
             else:
                 body[part] = extra[1]
 
