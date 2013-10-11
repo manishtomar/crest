@@ -69,13 +69,13 @@ config = {
                 "name": "groupConfiguration.name"
             }
         },
-        "groups/\w+/?$": {
+        "groups/[\w\-]+/?$": {
             "put": group,
             "aliases": {
                 "name": "groupConfiguration.name"
             },
         },
-        "groups/\w+/policies/?$": {
+        "groups/[\w\-]+/policies/?$": {
             "post": policies,
             "aliases": {
                 "name": "groupConfiguration.name"
