@@ -5,6 +5,8 @@ from argparse import ArgumentParser
 import importlib
 import re
 import json
+import tempfile
+import subprocess
 
 import requests
 
@@ -14,6 +16,17 @@ class RestCLI(object):
     """
     def __init__(self, config):
         self.config = config
+        self.headers = {}
+        self._get_env_headers()
+
+    def _get_env_headers(self):
+        for header, env_name in self.config['headers'].items():
+            env_value = os.getenv(env_name)
+            if env_value:
+                self.headers[header] = env_value
+
+    def _setup_headers(self, headers):
+        pass
 
     def parse_args(self, args):
         return self.setup_parser().parse_known_args(args)
@@ -29,18 +42,17 @@ class RestCLI(object):
         # TODO: What to do if uriprefix is not there?
         parser.add_argument('--uriprefix', help='URI prefix',
                             default=self.get_env(self.config['uriprefix'], 'env'))
-        #parser.add_argument('--host', help='Host to connect to',
-        #                    default=self.get_env(self.config, 'host_env'))
-        #parser.add_argument('--port', help='Port to connect to',
-        #                    default=self.get_env(self.config, 'port_env'))
-        parser.add_argument('resource', help='HTTP resource after URI prefix')
-        # TODO: Add --uri arg that overrides all above args
-        methods_parsers = parser.add_subparsers(help='HTTP methods')
-        #method_group = parser.add_mutually_exclusive_group(required=True)
-        for method in ['get', 'post', 'put', 'delete']:
-            #method_group.add_argument('--' + method, action='store_true')
-            m_parser = methods_parsers.add_parser(method)
-            m_parser.set_defaults(method=method)
+        parser.add_argument('--resources', help='List possible resources', action='store_true')
+        parser.add_argument('-e', '--edit', help='Edit request before sending. Uses $EDITOR',
+                            action='store_true')
+        parser.add_argument('--sample', help='Print sample request going to be sent',
+                            action='store_true')
+        parser.add_argument('resource', help='HTTP resource after URI prefix '
+                                             '(Use --resources to list possible resources)')
+        parser.add_argument(
+            'method', nargs='?', help='HTTP method/verb to apply on the resource. '
+                                      'Defaults to GET if not given',
+            default='GET')
         return parser
 
     def get_resource(self, res):
@@ -48,17 +60,20 @@ class RestCLI(object):
             if re.search(config_re, res):
                 return resource
 
+    def _setup_aliases(self, res):
+        pass
+
     def generate_uri(self, uriprefix, res):
         # TODO: If uriprefix env is not there, then ???
-        return '{uriprefix}{resource}'.format(uriprefix=uriprefix, resource=res)
+        prefix = uriprefix.rstrip('/')
+        return '{uriprefix}/{resource}'.format(uriprefix=prefix, resource=res)
 
     def uri_resource(self, uri):
         res_re = '^https?://.+/' + self.config['uriprefix'].lstrip('/') + '(.+)'
         return re.search(res_re, uri).groups(0)[0]
 
-    def update_body_part(self, body, extra):
-        # TODO: Handle arrays like "--server.personality[0].path /etc/a.t"
-        parts = extra[0].split('.')
+    def update_body_part(self, body, name, new_value):
+        parts = name.split('.')
         while parts:
             part = parts.pop(0)
             # Check of array
@@ -72,11 +87,14 @@ class RestCLI(object):
             elif isinstance(value, list) and parts:
                 body = value[index]
             else:
-                body[part] = extra[1]
+                body[part] = new_value
 
-    def updated_body_parts(self, body, extras):
-        for extra in extras:
-            self.update_body_part(body, extra)
+    def updated_body_parts(self, res, body, extras):
+        for name, value in extras:
+            aliases = res.get('aliases')
+            if aliases:
+                name = aliases.get(name, name)
+            self.update_body_part(body, name, value)
         return body
 
     def parse_extra(self, extra):
@@ -86,27 +104,61 @@ class RestCLI(object):
             parsed.append((name, extra[i + 1]))
         return parsed
 
-    def json(self, d):
-        return json.dumps(d, indent=4)
-
     def execute(self, args):
         args, extra = self.parse_args(args)
+        self._setup_headers(args.header)
         res = self.get_resource(args.resource)
         uri = self.generate_uri(args.uriprefix, args.resource)
         print 'uri', uri
-        method_body = res and res.get(args.method)
-        if method_body:
-            method_body = self.updated_body_parts(method_body, self.parse_extra(extra))
-            print 'Request\n', self.json(method_body)
-        r = requests.request(args.method, uri, data=json.dumps(method_body))
-        content = r.json()
+        if args.resources:
+            print '\n'.join([r.get('help') for r in self.config['resources'].values()])
+            return
+        body = res and res.get(args.method)
+        if body:
+            body = self.updated_body_parts(res, body, self.parse_extra(extra))
+            body = json.dumps(body, indent=4)
+            if args.edit:
+                body = get_from_file(self.config['tempfile'], body)
+        if args.sample:
+            print 'Sample request\n', body
+            return
+        print 'Sending request body\n', body
+        r = requests.request(args.method, uri, data=body, headers=self.headers)
+        content = r.text
         if content:
-            print 'Got response:\n', self.json(content)
+            print 'Got response:\n', pretty(content)
+
+
+def get_from_file(fname, content):
+    """
+    TODO: Need better name?!?
+    Display `content` in $EDITOR and return updated content
+    """
+    editor = os.getenv('EDITOR', 'vim')
+    tmpfile = open(fname, 'w')
+    with tmpfile:
+        tmpfile.write(content)
+        tmpfile.flush()
+        subprocess.check_call([editor, fname])
+    tmpfile = open(fname, 'r')
+    with tmpfile:
+        return tmpfile.read()
+
+
+def pretty(s):
+    try:
+        return json.dumps(json.loads(s), indent=4)
+    except ValueError:
+        return s
 
 
 def main(args):
-    RestCLI(importlib.import_module(args[0]).config).execute(args[1:])
-    #print RestCLI(importlib.import_module(args[0]).config).parse_args(args[1:])
+    conf_mod = args[0]
+    if conf_mod[-3:] == '.py':
+        conf_mod = conf_mod[:-3]
+    c = RestCLI(importlib.import_module(conf_mod).config)
+    c.execute(args[1:])
+    #print c.parse_args(args[1:])
 
 
 if __name__ == '__main__':
