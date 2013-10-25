@@ -1,0 +1,7 @@
+TODO:
+-----
+
+* PUT option does GET and applies args on that
+* -H, --headers option
+* --curl option that prints out corresponding curl command to send the request
+* Handle query string
