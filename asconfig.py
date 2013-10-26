@@ -82,7 +82,6 @@ config = {
             "help": "Scaling groups. Ex: groups"
         },
         "groups/[\w\-]+/?$": {
-            "put": True,
             "aliases": {
                 "name": "groupConfiguration.name"
             },
@@ -93,7 +92,6 @@ config = {
             "help": "Scaling group's policies. Format: groups/<groupID>/policies"
         },
         "groups/[\w\-]+/policies/[\w\-]+/?$": {
-            "put": True,
             "help": "Scaling group's single policy. Format: groups/<groupID>/policies/<policyID>"
         },
         "groups/[\w\-]+/policies/[\w\-]+/webhooks/?$": {

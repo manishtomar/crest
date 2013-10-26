@@ -10,6 +10,9 @@ import subprocess
 
 import requests
 
+
+success_codes = [200, 201, 202, 203, 204]
+
 class RestCLI(object):
     """
     REST Client
@@ -109,11 +112,20 @@ class RestCLI(object):
         self._setup_headers(args.header)
         res = self.get_resource(args.resource)
         uri = self.generate_uri(args.uriprefix, args.resource)
-        print 'uri', uri
         if args.resources:
             print '\n'.join([r.get('help') for r in self.config['resources'].values()])
             return
-        body = res and res.get(args.method)
+        if args.method.upper() == 'PUT':
+            # GET the resource before PUT
+            print 'Getting', uri
+            r = requests.get(uri, headers=self.headers)
+            if r.status_code != 200:
+                print 'GET returned\n', pretty(r.text)
+                return
+            else:
+                body = r.json()
+        else:
+            body = res and res.get(args.method)
         if body:
             body = self.updated_body_parts(res, body, self.parse_extra(extra))
             body = json.dumps(body, indent=4)
@@ -122,8 +134,10 @@ class RestCLI(object):
         if args.sample:
             print 'Sample request\n', body
             return
-        print 'Sending request body\n', body
+        print args.method.upper(), uri, '\n{}'.format(body) if body else ''
         r = requests.request(args.method, uri, data=body, headers=self.headers)
+        if r.status_code not in success_codes:
+            print 'Error status', r.status_code
         content = r.text
         if content:
             print 'Got response:\n', pretty(content)
