@@ -32,5 +32,13 @@ export AS_URI_PREFIX=https://ord.autoscale.api.rackspacecloud.com/v1.0/829456/
 export AS_AUTH_TOKEN=3480d9f0df998dd8f9df8d98f9d8f
 ```
 Now, with these set, one can list groups by just typing `ascli groups`. It'll do `GET https://ord.autoscale.api.rackspacecloud.com/v1.0/829456/groups` and print pretty json response. 
+To list a particular group, `ascli groups/c38bd466-6fee-4b57-b997-c600ce5784a9`, To delete this group `ascli groups/c38bd466-6fee-4b57-b997-c600ce5784a9 delete` 
 To create a group `ascli groups post`. This will send `POST https://ord.autoscale.api.rackspacecloud.com/v1.0/829456/groups` with content taken from config file described in https://github.com/manishtomar/restcli/blob/master/asconfig.py#L78
 All these requests are sent with X-Auth-Token:$AS_AUTH_TOKEN header as described in config file. To change the post body before sending, you can give -e option that will open the content in an editor before sending. 
+
+You can also change content by giving specific args in content json after the method name 'post'. So, to create a group by just changing the name:
+```
+ascli groups post --groupConfiguration.name newname
+```
+Here, `groupConfiguration` is property inside the json body and `name` is property inside it. This is dynamic and can be added for any number of properties. 
+It also works with arrays: `--launchConfiguration.args.server.personality[0].path /opt/newpath.txt` will work.
