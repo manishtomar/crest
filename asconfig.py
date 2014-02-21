@@ -1,3 +1,27 @@
+policies = [
+    {
+        "name": "scale up by one server",
+        "change": 1,
+        "cooldown": 150,
+        "type": "webhook"
+    },
+    {
+        "name": "scale down by 5.5 percent",
+        "changePercent": -5.5,
+        "cooldown": 6,
+        "type": "webhook"
+    },
+    {
+        "name": "cron monthly example",
+        "change": 1,
+        "cooldown": 100,
+        "type": "schedule",
+        "args": {
+            "cron": "* * 3 * *",
+        }
+    }
+]
+
 group = {
     "groupConfiguration": {
         "name": "manitest",
@@ -13,45 +37,22 @@ group = {
         "type": "launch_server",
         "args": {
             "server": {
-                "flavorRef": "3",
+                "flavorRef": "performance1-1",
                 "name": "webhead",
                 "imageRef": "0d589460-f177-4b0f-81c1-8ab8903ac7d8",
                 "metadata": {
                     "mani": "manitest"
                 },
-                "personality" : [
-                    {
-                        "path" : "/etc/banner.txt",
-                        "contents": "VGhpcyBpcyBhIHRlc3Qgb2YgYmFzZTY0IGVuY29kaW5n"
-                    },
+                "networks": [
+                 {
+                     "uuid": "11111111-1111-1111-1111-111111111111"
+                 }
                 ]
             }
         }
     },
-    "scalingPolicies": [
-        {
-            "name": "Delete all servers",
-            "desiredCapacity": 0,
-            "cooldown": 3,
-            "type": "webhook"
-        }
-    ]
+    "scalingPolicies": policies
 }
-
-policies = [
-    {
-        "name": "scale up by one server",
-        "change": 1,
-        "cooldown": 150,
-        "type": "webhook"
-    },
-    {
-        "name": "scale down by 5.5 percent",
-        "changePercent": -5.5,
-        "cooldown": 6,
-        "type": "webhook"
-    }
-]
 
 webhooks = [
     {
