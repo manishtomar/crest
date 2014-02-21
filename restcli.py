@@ -20,19 +20,21 @@ class RestCLI(object):
     def __init__(self, config):
         self.config = config
         self.headers = {}
-        self._get_env_headers()
+        self._set_env_headers()
 
-    def _get_env_headers(self):
+    def _set_env_headers(self):
         for header, env_name in self.config['headers'].items():
             env_value = os.getenv(env_name)
             if env_value:
                 self.headers[header] = env_value
 
     def _setup_headers(self, headers):
-        pass
+        for header in headers:
+            name, value = header.split(':')
+            self.headers[name] = value
 
     def parse_args(self, args):
-        return self.setup_parser().parse_known_args(args)
+        return self.setup_parser().parse_args(args)
 
     def get_env(self, d, env):
         name = d.get(env)
@@ -41,30 +43,35 @@ class RestCLI(object):
     def setup_parser(self):
         parser = ArgumentParser(
             self.config['name'], description=self.config['description'])
-        parser.add_argument('-H', '--header', help='HTTP header', dest='header')
+        parser.add_argument('resource', help='HTTP resource after URI prefix '
+                                             '(Use --resources to list possible resources)')
+        parser.add_argument('-H', '--header', metavar='Header',
+                            help='HTTP header. Can be used multiple times',
+                            dest='headers', action='append')
         # TODO: What to do if uriprefix is not there?
         parser.add_argument('--uriprefix', help='URI prefix',
                             default=self.get_env(self.config['uriprefix'], 'env'))
         parser.add_argument('--resources', help='List possible resources', action='store_true')
         parser.add_argument('-e', '--edit', help='Edit request before sending. Uses $EDITOR',
                             action='store_true')
-        parser.add_argument('--sample', help='Print sample request going to be sent',
-                            action='store_true')
-        parser.add_argument('resource', help='HTTP resource after URI prefix '
-                                             '(Use --resources to list possible resources)')
+        parser.add_argument('--print-only', help='Only print request going to be sent. Does not send',
+                            dest='print_only', action='store_true')
+        parser.add_argument('--print', help='Print request before sending',
+                            dest='print_body', action='store_true')
         parser.add_argument(
-            'method', nargs='?', help='HTTP method/verb to apply on the resource. '
-                                      'Defaults to GET if not given',
-            default='GET')
+            '-m', '--method', help='HTTP method/verb to apply on the resource. '
+                                   'Defaults to GET if not given', default='get')
+        parser.add_argument('-r', '--replace', action='append',
+                            metavar='JSON body part=new value',
+                            help='Replace JSON body part with new value. Can be used multiple times')
+        parser.add_argument('-o', '--output', metavar='JSON body part',
+                            help='Output specific part of JSON response body')
         return parser
 
     def get_resource(self, res):
         for config_re, resource in self.config['resources'].items():
             if re.search(config_re, res, re.IGNORECASE):
                 return resource
-
-    def _setup_aliases(self, res):
-        pass
 
     def generate_uri(self, uriprefix, res):
         # TODO: If uriprefix env is not there, then ???
@@ -75,72 +82,94 @@ class RestCLI(object):
         res_re = '^https?://.+/' + self.config['uriprefix'].lstrip('/') + '(.+)'
         return re.search(res_re, uri).groups(0)[0]
 
-    def update_body_part(self, body, name, new_value):
-        parts = name.split('.')
-        while parts:
-            part = parts.pop(0)
-            # Check of array
-            m = re.match('(.+)\[(\d+)\]$', part)
-            if m:
-                part = m.groups()[0]
-                index = int(m.groups()[1])
-            value = body.get(part)
-            if isinstance(value, dict) and parts:
-                body = value
-            elif isinstance(value, list) and parts:
-                body = value[index]
-            else:
-                body[part] = new_value
-
-    def updated_body_parts(self, res, body, extras):
-        for name, value in extras:
-            aliases = res.get('aliases')
-            if aliases:
-                name = aliases.get(name, name)
-            self.update_body_part(body, name, value)
-        return body
-
-    def parse_extra(self, extra):
-        parsed = []
-        for i in range(0, len(extra), 2):
-            name = extra[i][2:]
-            parsed.append((name, extra[i + 1]))
-        return parsed
-
     def execute(self, args):
-        args, extra = self.parse_args(args)
-        self._setup_headers(args.header)
+        args = self.parse_args(args)
+        if args.headers:
+            self._setup_headers(args.headers)
         res = self.get_resource(args.resource)
         uri = self.generate_uri(args.uriprefix, args.resource)
         if args.resources:
             print '\n'.join([r.get('help') for r in self.config['resources'].values()])
             return
+        # Get body
         if args.method.upper() == 'PUT':
             # GET the resource before PUT
-            print 'Getting', uri
+            #print 'Getting', uri
             r = requests.get(uri, headers=self.headers)
             if r.status_code != 200:
-                print 'GET returned\n', pretty(r.text)
-                return
+                print 'Error: GET {} returned {}. Content:\n{}'.format(
+                    uri, r.status_code, pretty(r.text))
+                return -1
             else:
                 body = r.json()
         else:
             body = res and res.get(args.method)
+        # Replace body parts
         if body:
-            body = self.updated_body_parts(res, body, self.parse_extra(extra))
+            if args.replace:
+                body_replacements = (r.split('=') for r in args.replace)
+                body = update_body_parts(res, body, body_replacements)
             body = json.dumps(body, indent=4)
             if args.edit:
                 body = get_from_file(self.config['tempfile'], body)
-        if args.sample:
-            print 'Sample request\n', body
+        # Any printing
+        if args.print_only:
+            print args.method.upper(), uri, '\n{}'.format(body) if body else ''
             return
-        print args.method.upper(), uri, '\n{}'.format(body) if body else ''
-        r = requests.request(args.method, uri, data=body, headers=self.headers)
+        if args.print_body:
+            print args.method.upper(), uri, '\n{}'.format(body) if body else ''
+        # Send request
+        r = requests.request(args.method.lower(), uri, data=body, headers=self.headers)
+        # Display response
+        content = r.text
         if r.status_code not in success_codes:
             print 'Error status', r.status_code
-        content = r.text
+            print content and pretty(content)
+            return -1
         if content:
-            print 'Got response:\n', pretty(content)
+            if args.output:
+                content = json.loads(content)
+                part, prop = extract_body_part(content, args.output)
+                print part[prop]
+            else:
+                print pretty(content)
+        return 0
+
+
+def update_body_part(body, name, new_value):
+    part, prop = extract_body_part(body, name)
+    try:
+        new_value = int(new_value)
+    except ValueError:
+        pass
+    part[prop] = new_value
+
+
+def extract_body_part(body, name):
+    parts = name.split('.')
+    while parts:
+        part = parts.pop(0)
+        # Check of array
+        m = re.match('(.+)\[(\d+)\]$', part)
+        if m:
+            part = m.groups()[0]
+            index = int(m.groups()[1])
+        value = body.get(part)
+        if isinstance(value, dict) and parts:
+            body = value
+        elif isinstance(value, list) and parts:
+            body = value[index]
+        else:
+            return body, part
+
+
+def update_body_parts(res, body, extras):
+    for name, value in extras:
+        aliases = res.get('aliases')
+        if aliases:
+            name = aliases.get(name, name)
+        update_body_part(body, name, value)
+    return body
 
 
 def get_from_file(fname, content):
@@ -171,7 +200,7 @@ def main(args):
     if conf_mod[-3:] == '.py':
         conf_mod = conf_mod[:-3]
     c = RestCLI(importlib.import_module(conf_mod).config)
-    c.execute(args[1:])
+    return c.execute(args[1:])
     #print c.parse_args(args[1:])
 
 
