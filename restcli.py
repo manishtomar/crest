@@ -60,7 +60,7 @@ class RestCLI(object):
 
     def get_resource(self, res):
         for config_re, resource in self.config['resources'].items():
-            if re.search(config_re, res):
+            if re.search(config_re, res, re.IGNORECASE):
                 return resource
 
     def _setup_aliases(self, res):
