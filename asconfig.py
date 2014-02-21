@@ -64,8 +64,8 @@ webhooks = [
 ]
 
 config = {
-    "name": "Rackspace Auto Scale",
-    "description": "CLI to work on Racksapce Autoscale",
+    "name": "ascli",
+    "description": "CLI to work on Rackspace Auto Scale",
     "uriprefix": {
         "regex": "/v1.0/\d+/",
         "env": "AS_URI_PREFIX"
