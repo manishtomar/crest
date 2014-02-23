@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import sys, os
 from argparse import ArgumentParser
 import importlib
@@ -43,10 +45,11 @@ class RestCLI(object):
     def setup_parser(self):
         parser = ArgumentParser(
             self.config['name'], description=self.config['description'])
-        parser.add_argument('resource', help='HTTP resource after URI prefix '
-                                             '(Use --resources to list possible resources)')
+        parser.add_argument(
+            'resource', nargs='?',
+            help='HTTP resource after URI prefix (Use --resources to list possible resources)')
         parser.add_argument('-H', '--header', metavar='Header',
-                            help='HTTP header. Can be used multiple times',
+                            help='HTTP header in name:value form. Can be used multiple times',
                             dest='headers', action='append')
         # TODO: What to do if uriprefix is not there?
         parser.add_argument('--uriprefix', help='URI prefix',
@@ -66,6 +69,13 @@ class RestCLI(object):
                             help='Replace JSON body part with new value. Can be used multiple times')
         parser.add_argument('-o', '--output', metavar='JSON body part',
                             help='Output specific part of JSON response body')
+        parser.add_argument('--history', action='store_true',
+                            help='List requests sent. Use --last to use any earlier sent request body')
+        parser.add_argument(
+            '-l', '--last',
+            help=('Use last Nth request body from history. Defaults to 1 if not given. '
+                  'Use --history to list earlier sent requests'),
+            metavar='N', nargs='?', const=1, default=1, type=int)
         return parser
 
     def get_resource(self, res):
@@ -82,23 +92,55 @@ class RestCLI(object):
         res_re = '^https?://.+/' + self.config['uriprefix'].lstrip('/') + '(.+)'
         return re.search(res_re, uri).groups(0)[0]
 
+    def store_request(self, method, res, body):
+        try:
+            path = os.path.join(os.path.expanduser('~/.restcli'), self.config['name'], 'history')
+            # TODO: Use os.walk instead
+            files = os.listdir(path)
+            last = int(sorted(files)[-1]) if files else 0
+            with open(os.path.join(path, '{:0=5d}'.format(last + 1)), 'w') as f:
+                args = body and (method, res, body) or (method, res, )
+                print(*args, sep='\n', file=f)
+        except IOError:
+            pass
+
+    def printable_history(self):
+        "Return iterator of printable items in history"
+        try:
+            path = os.path.join(os.path.expanduser('~/.restcli'), self.config['name'], 'history')
+            # TODO: Use os.walk instead
+            files = os.listdir(path)
+            return (printable_history_item(os.path.join(path, fentry)) for fentry in files)
+        except IOError:
+            return ''
+
     def execute(self, args):
         args = self.parse_args(args)
-        if args.headers:
-            self._setup_headers(args.headers)
+        # Print resources if asked
+        if args.resources:
+            print(*[r.get('help') for r in self.config['resources'].values()], sep='\n')
+            return 0
+        # Print history if asked
+        if args.history:
+            for item in self.printable_history():
+                print(item)
+            return 0
+        # Check resource
+        if not args.resource:
+            print('Need resource', file=sys.stderr)
+            return -1
         res = self.get_resource(args.resource)
         uri = self.generate_uri(args.uriprefix, args.resource)
-        if args.resources:
-            print '\n'.join([r.get('help') for r in self.config['resources'].values()])
-            return
+        if args.headers:
+            self._setup_headers(args.headers)
         # Get body
         if args.method.upper() == 'PUT':
             # GET the resource before PUT
             #print 'Getting', uri
             r = requests.get(uri, headers=self.headers)
             if r.status_code != 200:
-                print 'Error: GET {} returned {}. Content:\n{}'.format(
-                    uri, r.status_code, pretty(r.text))
+                print('Error: GET {} returned {}. Content:\n{}'.format(
+                    uri, r.status_code, pretty(r.text)))
                 return -1
             else:
                 body = r.json()
@@ -112,28 +154,38 @@ class RestCLI(object):
             body = json.dumps(body, indent=4)
             if args.edit:
                 body = get_from_file(self.config['tempfile'], body)
+        # Store request in history
+        self.store_request(args.method.upper(), args.resource, body)
         # Any printing
         if args.print_only:
-            print args.method.upper(), uri, '\n{}'.format(body) if body else ''
+            print(args.method.upper(), uri, '\n{}'.format(body) if body else '')
             return
         if args.print_body:
-            print args.method.upper(), uri, '\n{}'.format(body) if body else ''
+            print(args.method.upper(), uri, '\n{}'.format(body) if body else '')
         # Send request
         r = requests.request(args.method.lower(), uri, data=body, headers=self.headers)
         # Display response
         content = r.text
         if r.status_code not in success_codes:
-            print 'Error status', r.status_code
-            print content and pretty(content)
+            print('Error status', r.status_code, '\n', content and pretty(content))
             return -1
         if content:
             if args.output:
                 content = json.loads(content)
                 part, prop = extract_body_part(content, args.output)
-                print part[prop]
+                print(part[prop])
             else:
-                print pretty(content)
+                print(pretty(content))
         return 0
+
+
+def printable_history_item(fname):
+    try:
+        with open(fname) as f:
+            lines = f.readlines()
+            return '{:<10}{}'.format(lines[0].strip(), lines[1].strip())
+    except IOError:
+        return ''
 
 
 def update_body_part(body, name, new_value):
