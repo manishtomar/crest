@@ -97,7 +97,7 @@ class RestCLI(object):
             path = os.path.join(os.path.expanduser('~/.restcli'), self.config['name'], 'history')
             # TODO: Use os.walk instead
             files = os.listdir(path)
-            last = int(sorted(files)[-1]) if files else 0
+            last = int(max(files)) if files else 0
             with open(os.path.join(path, '{:0=5d}'.format(last + 1)), 'w') as f:
                 args = body and (method, res, body) or (method, res, )
                 print(*args, sep='\n', file=f)
