@@ -134,26 +134,8 @@ class RestCLI(object):
         if args.headers:
             self._setup_headers(args.headers)
         # Get body
-        if args.method.upper() == 'PUT':
-            # GET the resource before PUT
-            #print 'Getting', uri
-            r = requests.get(uri, headers=self.headers)
-            if r.status_code != 200:
-                print('Error: GET {} returned {}. Content:\n{}'.format(
-                    uri, r.status_code, pretty(r.text)))
-                return -1
-            else:
-                body = r.json()
-        else:
-            body = res and res.get(args.method)
-        # Replace body parts
-        if body:
-            if args.replace:
-                body_replacements = (r.split('=') for r in args.replace)
-                body = update_body_parts(res, body, body_replacements)
-            body = json.dumps(body, indent=4)
-            if args.edit:
-                body = get_from_file(self.config['tempfile'], body)
+        body = get_body(args.method, uri, self.headers, res, args.replace,
+                        args.edit, self.config['tempfile'])
         # Store request in history
         self.store_request(args.method.upper(), args.resource, body)
         # Any printing
@@ -177,6 +159,31 @@ class RestCLI(object):
             else:
                 print(pretty(content))
         return 0
+
+
+def get_body(method, uri, headers, res, replace, edit, tmpfile):
+    "Get body of request to be sent"
+    if method.upper() == 'PUT':
+        # GET the resource before PUT
+        #print 'Getting', uri
+        r = requests.get(uri, headers=headers)
+        if r.status_code != 200:
+            print('Error: GET {} returned {}. Content:\n{}'.format(
+                uri, r.status_code, pretty(r.text)))
+            return -1
+        else:
+            body = r.json()
+    else:
+        body = res and res.get(method)
+    # Replace body parts
+    if body:
+        if replace:
+            body_replacements = (r.split('=') for r in replace)
+            body = update_body_parts(res, body, body_replacements)
+        body = json.dumps(body, indent=4)
+        if edit:
+            body = get_from_file(tmpfile, body)
+    return body
 
 
 def printable_history_item(fname):
