@@ -22,6 +22,8 @@ class RestCLI(object):
     def __init__(self, config):
         self.config = config
         self.headers = {}
+        self.history = History(os.path.join(os.path.expanduser('~/.restcli'),
+                                            self.config['name'], 'history'))
         self._set_env_headers()
 
     def _set_env_headers(self):
@@ -92,41 +94,20 @@ class RestCLI(object):
         res_re = '^https?://.+/' + self.config['uriprefix'].lstrip('/') + '(.+)'
         return re.search(res_re, uri).groups(0)[0]
 
-    def store_request(self, method, res, body):
-        try:
-            path = os.path.join(os.path.expanduser('~/.restcli'), self.config['name'], 'history')
-            # TODO: Use os.walk instead
-            files = os.listdir(path)
-            last = int(max(files)) if files else 0
-            with open(os.path.join(path, '{:0=5d}'.format(last + 1)), 'w') as f:
-                args = body and (method, res, body) or (method, res, )
-                print(*args, sep='\n', file=f)
-        except IOError:
-            pass
-
-    def printable_history(self):
-        "Return iterator of printable items in history"
-        try:
-            path = os.path.join(os.path.expanduser('~/.restcli'), self.config['name'], 'history')
-            # TODO: Use os.walk instead
-            files = os.listdir(path)
-            return (printable_history_item(os.path.join(path, fentry)) for fentry in files)
-        except IOError:
-            return ''
-
     def execute(self, args):
         args = self.parse_args(args)
         # Print resources if asked
         if args.resources:
             print(*[r.get('help') for r in self.config['resources'].values()], sep='\n')
-            return 0
+            return
         # Print history if asked
         if args.history:
-            for item in self.printable_history():
+            for item in self.history.items():
                 print(item)
-            return 0
+            return
         # Check resource
         if not args.resource:
+            # TODO: Raise exception instead printing and returning -1
             print('Need resource', file=sys.stderr)
             return -1
         res = self.get_resource(args.resource)
@@ -134,8 +115,8 @@ class RestCLI(object):
         if args.headers:
             self._setup_headers(args.headers)
         # Get body
-        body = get_body(args.method, uri, self.headers, res, args.replace,
-                        args.edit, self.config['tempfile'])
+        body = get_body(self.history, self.args.method, uri, self.headers, res,
+                        args.last, args.replace, args.edit, self.config['tempfile'])
         # Store request in history
         self.store_request(args.method.upper(), args.resource, body)
         # Any printing
@@ -161,8 +142,53 @@ class RestCLI(object):
         return 0
 
 
-def get_body(method, uri, headers, res, replace, edit, tmpfile):
+class History(object):
+    """
+    History of requests
+    """
+    def __init__(self, path):
+        self.path = path
+
+    def items(self):
+        # TODO: Use os.walk instead
+        files = os.listdir(self.path)
+        files.sort(reverse=True)
+        for i, fentry in enumerate(files):
+            try:
+                with open(os.path.join(self.path, fentry)) as f:
+                    lines = f.readlines()
+                    yield HistoryItem(lines[0].strip(), lines[1].strip(), i)
+            except IOError:
+                pass
+
+    def __getitem__(self, index):
+        for i, item in enumerate(self.items()):
+            if i == index:
+                return item
+
+    def store_item(self, method, res, body):
+        # TODO: Should it take `HistoryItem` as arg?
+        # TODO: Use os.walk instead
+        files = os.listdir(self.path)
+        last = int(max(files)) if files else 0
+        with open(os.path.join(path, '{:0=5d}'.format(last + 1)), 'w') as f:
+            args = body and (method, res, body) or (method, res, )
+            print(*args, sep='\n', file=f)
+
+
+
+class HistoryItem(namedtuple('Item', 'method uri index')):
+    def __str__(self):
+        return '{:<6}{:<10}{}'.format(self.index, self.method, self.uri)
+
+
+def get_body(history, method, uri, headers, res, last, replace, edit, tmpfile):
     "Get body of request to be sent"
+    if last:
+        req = history[last]
+        method = req.method
+        body = req.body
+
     if method.upper() == 'PUT':
         # GET the resource before PUT
         #print 'Getting', uri
@@ -184,15 +210,6 @@ def get_body(method, uri, headers, res, replace, edit, tmpfile):
         if edit:
             body = get_from_file(tmpfile, body)
     return body
-
-
-def printable_history_item(fname):
-    try:
-        with open(fname) as f:
-            lines = f.readlines()
-            return '{:<10}{}'.format(lines[0].strip(), lines[1].strip())
-    except IOError:
-        return ''
 
 
 def update_body_part(body, name, new_value):
