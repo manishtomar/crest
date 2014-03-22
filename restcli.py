@@ -9,6 +9,7 @@ import re
 import json
 import tempfile
 import subprocess
+from operator import add
 
 import requests
 
@@ -65,7 +66,7 @@ class RestCLI(object):
                             dest='print_body', action='store_true')
         parser.add_argument(
             '-m', '--method', help='HTTP method/verb to apply on the resource. '
-                                   'Defaults to GET if not given', default='get')
+                                   'Defaults to GET if not given')
         parser.add_argument('-r', '--replace', action='append',
                             metavar='JSON body part=new value',
                             help='Replace JSON body part with new value. Can be used multiple times')
@@ -77,7 +78,7 @@ class RestCLI(object):
             '-l', '--last',
             help=('Use last Nth request body from history. Defaults to 1 if not given. '
                   'Use --history to list earlier sent requests'),
-            metavar='N', nargs='?', const=1, default=1, type=int)
+            metavar='N', nargs='?', const=1, default=0, type=int)
         return parser
 
     def get_resource(self, res):
@@ -94,6 +95,10 @@ class RestCLI(object):
         res_re = '^https?://.+/' + self.config['uriprefix'].lstrip('/') + '(.+)'
         return re.search(res_re, uri).groups(0)[0]
 
+    def get_last_info(self, last):
+        last_req = last and self.history[last]
+        return
+
     def execute(self, args):
         args = self.parse_args(args)
         # Print resources if asked
@@ -102,31 +107,39 @@ class RestCLI(object):
             return
         # Print history if asked
         if args.history:
-            for item in self.history.items():
-                print(item)
+            for item in self.history.items(False):
+                print(item.printable())
             return
         # Check resource
-        if not args.resource:
+        if not args.last and not args.resource:
             # TODO: Raise exception instead printing and returning -1
             print('Need resource', file=sys.stderr)
             return -1
-        res = self.get_resource(args.resource)
-        uri = self.generate_uri(args.uriprefix, args.resource)
+        # Use last req info but args take precedence
+        last_req = args.last and self.history[args.last] or HistoryItem(None, None)
+        method = args.method or last_req.method or 'get'
+        res_arg = args.resource or last_req.resource
+        # TODO: Have option to get body from args
+        last_body = last_req.body
+        # Get config resource and URI
+        res = self.get_resource(res_arg)
+        uri = self.generate_uri(args.uriprefix, res_arg)
         if args.headers:
             self._setup_headers(args.headers)
         # Get body
-        body = get_body(self.history, self.args.method, uri, self.headers, res,
-                        args.last, args.replace, args.edit, self.config['tempfile'])
-        # Store request in history
-        self.store_request(args.method.upper(), args.resource, body)
+        body = get_body(last_body, method, uri, self.headers, res,
+                        args.replace, args.edit, self.config['tempfile'])
         # Any printing
         if args.print_only:
-            print(args.method.upper(), uri, '\n{}'.format(body) if body else '')
+            print(method.upper(), uri, '\n{}'.format(body) if body else '')
             return
         if args.print_body:
-            print(args.method.upper(), uri, '\n{}'.format(body) if body else '')
+            print(method.upper(), uri, '\n{}'.format(body) if body else '')
+        # Store request in history
+        # TODO: De-dup request - store only if it is different from previous
+        self.history.store_item(method.upper(), res_arg, body)
         # Send request
-        r = requests.request(args.method.lower(), uri, data=body, headers=self.headers)
+        r = requests.request(method.lower(), uri, data=body, headers=self.headers)
         # Display response
         content = r.text
         if r.status_code not in success_codes:
@@ -149,47 +162,60 @@ class History(object):
     def __init__(self, path):
         self.path = path
 
-    def items(self):
-        # TODO: Use os.walk instead
-        files = os.listdir(self.path)
-        files.sort(reverse=True)
-        for i, fentry in enumerate(files):
-            try:
-                with open(os.path.join(self.path, fentry)) as f:
+    def _last(self):
+        try:
+            with open(os.path.join(self.path, 'HEAD')) as f:
+                return int(f.read().strip())
+        except IOError:
+            return 0
+
+    def items(self, include_body=True):
+        try:
+            last = self._last()
+            for findex in xrange(last, 0, -1):
+                with open(os.path.join(self.path, '{:0=5d}'.format(findex))) as f:
                     lines = f.readlines()
-                    yield HistoryItem(lines[0].strip(), lines[1].strip(), i)
-            except IOError:
-                pass
+                    body = reduce(add, lines[2:], '') if include_body else None
+                    yield HistoryItem(lines[0].strip(), lines[1].strip(), body=body,
+                                      index=(last - findex + 1))
+        except IOError:
+            # Stop processing on any error
+            pass
 
     def __getitem__(self, index):
         for i, item in enumerate(self.items()):
-            if i == index:
+            if i + 1 == index:
                 return item
 
-    def store_item(self, method, res, body):
+    def store_item(self, method, resource, body):
         # TODO: Should it take `HistoryItem` as arg?
-        # TODO: Use os.walk instead
-        files = os.listdir(self.path)
-        last = int(max(files)) if files else 0
-        with open(os.path.join(path, '{:0=5d}'.format(last + 1)), 'w') as f:
-            args = body and (method, res, body) or (method, res, )
+        new_filename = '{:0=5d}'.format(self._last() + 1)
+        with open(os.path.join(self.path, new_filename), 'w') as f:
+            args = body and (method, resource, body) or (method, resource, )
             print(*args, sep='\n', file=f)
+            with open(os.path.join(self.path, 'HEAD'), 'w') as hf:
+                hf.write(new_filename)
 
 
+class HistoryItem(object):
+    # TODO: Since an item is a request not something generic, should the name
+    # be changed to Request?
 
-class HistoryItem(namedtuple('Item', 'method uri index')):
-    def __str__(self):
-        return '{:<6}{:<10}{}'.format(self.index, self.method, self.uri)
+    def __init__(self, method, resource, body=None, index=None):
+        self.method = method
+        self.resource = resource
+        self.body = body
+        self.index = index
+
+    def printable(self):
+        return '{:<6}{:<10}{}'.format(self.index, self.method, self.resource)
 
 
-def get_body(history, method, uri, headers, res, last, replace, edit, tmpfile):
+def get_body(last_body, method, uri, headers, res, replace, edit, tmpfile):
     "Get body of request to be sent"
-    if last:
-        req = history[last]
-        method = req.method
-        body = req.body
-
-    if method.upper() == 'PUT':
+    if last_body:
+        body = json.loads(last_body)
+    elif method.upper() == 'PUT':
         # GET the resource before PUT
         #print 'Getting', uri
         r = requests.get(uri, headers=headers)
