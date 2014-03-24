@@ -198,9 +198,13 @@ class History(object):
         # TODO: Should it take `HistoryItem` as arg?
         last = self._last()
         # Do not store if it is same as last item
-        last_item = self._extract_item(self._fpath(last))
-        if last_item == HistoryItem(method, resource, body=body):
-            return
+        try:
+            last_item = self._extract_item(self._fpath(last))
+            if last_item == HistoryItem(method, resource, body=body):
+                return
+        except IOError:
+            # last item does not exist
+            pass
         new_filepath = self._fpath(last + 1)
         with open(new_filepath, 'w') as f:
             args = body and (method, resource, body) or (method, resource, )
