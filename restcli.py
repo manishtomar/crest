@@ -169,23 +169,26 @@ class History(object):
         except IOError:
             return 0
 
+    def _extract_item(self, fpath, index=None, include_body=True):
+        with open(fpath) as f:
+            lines = f.readlines()
+            body = reduce(add, lines[2:], '') if include_body else None
+            return HistoryItem(lines[0].strip(), lines[1].strip(), body=body, index=index)
+
     def items(self, include_body=True):
         try:
             last = self._last()
             for findex in xrange(last, 0, -1):
-                with open(os.path.join(self.path, '{:0=5d}'.format(findex))) as f:
-                    lines = f.readlines()
-                    body = reduce(add, lines[2:], '') if include_body else None
-                    yield HistoryItem(lines[0].strip(), lines[1].strip(), body=body,
-                                      index=(last - findex + 1))
+                yield self._extract_item(os.path.join(self.path, '{:0=5d}'.format(findex)),
+                                         index=(last - findex + 1), include_body=include_body)
         except IOError:
             # Stop processing on any error
             pass
 
     def __getitem__(self, index):
-        for i, item in enumerate(self.items()):
-            if i + 1 == index:
-                return item
+        findex = self._last() + 1 - index
+        return self._extract_item(os.path.join(self.path, '{:0=5d}'.format(findex)),
+                                  include_body=True)
 
     def store_item(self, method, resource, body):
         # TODO: Should it take `HistoryItem` as arg?
