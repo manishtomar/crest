@@ -64,19 +64,17 @@ webhooks = [
 ]
 
 config = {
-    "name": "ascli",
-    "description": "Access Rackspace Auto Scale REST API",
+    "description": "Rackspace Auto Scale REST API",
     "uriprefix": {
         "regex": "/v1.0/\d+/",
         "env": "AS_URI_PREFIX"
     },
     "headers": {
-        "X-Auth-Token": "AS_AUTH_TOKEN"
+        "X-Auth-Token": "RS_AUTH_TOKEN"
     },
-    "tempfile": "/tmp/ascli_req.json",
     "resources": {
         "groups/?$": {
-            "post": group,
+            "templates": {"default": group},
             "aliases": {
                 "name": "groupConfiguration.name"
             },
@@ -89,14 +87,14 @@ config = {
             "help": "Single scaling group. Format: groups/<groupID> Ex: groups/2339-23-543"
         },
         "groups/[\w\-]+/policies/?$": {
-            "post": policies,
+            "templates": {"default": policies},
             "help": "Scaling group's policies. Format: groups/<groupID>/policies"
         },
         "groups/[\w\-]+/policies/[\w\-]+/?$": {
             "help": "Scaling group's single policy. Format: groups/<groupID>/policies/<policyID>"
         },
         "groups/[\w\-]+/policies/[\w\-]+/webhooks/?$": {
-            "post": webhooks,
+            "templates": {"default": webhooks},
             "help": "A single policy's webhooks. Format: groups/<groupID>/policies/<policyID>/webhooks"
         }
     }
