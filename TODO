@@ -1,7 +1,11 @@
 TODO:
 -----
 
-* PUT option does GET and applies args on that
-* -H, --headers option
+* WRITE DOCUMENTATION!!
+* Handle arrays properly when parsing JSON body part (-r and -o)
 * --curl option that prints out corresponding curl command to send the request
-* Handle query string
+* Implement install service and list service
+* Implement list-templates
+* Handle absolute URI provided on configured service -
+  i.e. extract resource out of it and apply options on it. Accordingly store it in service history
+* -r should take quoted value as string and other as number/string
