@@ -12,174 +12,267 @@ import subprocess
 from operator import add
 
 import requests
+from requests.structures import CaseInsensitiveDict
 
-from history import History, HistoryItems
+from history import History, HistoryItem
 
 
 success_codes = [200, 201, 202, 203, 204]
 
 
-class RestCLI(object):
-    """
-    REST Client
-    """
-    def __init__(self, config):
-        self.config = config
-        self.headers = {}
-        self.history = History(os.path.join(os.path.expanduser('~/.restcli'),
-                                            self.config['name'], 'history'))
-        self._set_env_headers()
+home = os.path.expanduser('~/.restcli')
 
-    def _set_env_headers(self):
-        for header, env_name in self.config['headers'].items():
+
+class Service(object):
+    """
+    RESTful service installed at ~/.restcli
+    """
+    def __init__(self, name):
+        self.path = os.path.join(home, name)
+
+        # TODO: This *probably* guarantees that config module will be what I expect
+        # but I don't feel comfortable doing this
+        sys.path.insert(0, self.path)
+        self.config = importlib.import_module('config').config
+
+        self.history = History(os.path.join(self.path, 'history'))
+
+    @property
+    def headers(self):
+        headers = CaseInsensitiveDict()
+        for name, env_name in self.config['headers'].items():
             env_value = os.getenv(env_name)
             if env_value:
-                self.headers[header] = env_value
+                headers[name] = env_value
+        return headers
 
-    def _setup_headers(self, headers):
-        for header in headers:
-            name, value = header.split(':')
-            self.headers[name] = value
-
-    def parse_args(self, args):
-        return self.setup_parser().parse_args(args)
-
-    def get_env(self, d, env):
-        name = d.get(env)
-        return name and os.getenv(name)
-
-    def setup_parser(self):
-        parser = ArgumentParser(
-            self.config['name'], description=self.config['description'])
-        parser.add_argument(
-            'resource', nargs='?',
-            help='HTTP resource after URI prefix (Use --resources to list possible resources)')
-        parser.add_argument('-H', '--header', metavar='Header',
-                            help='HTTP header in name:value form. Can be used multiple times',
-                            dest='headers', action='append')
-        # TODO: What to do if uriprefix is not there?
-        parser.add_argument('--uriprefix', help='URI prefix',
-                            default=self.get_env(self.config['uriprefix'], 'env'))
-        parser.add_argument('--resources', help='List possible resources', action='store_true')
-        parser.add_argument('-e', '--edit', help='Edit request before sending. Uses $EDITOR',
-                            action='store_true')
-        parser.add_argument('--print-only', help='Only print request going to be sent. Does not send',
-                            dest='print_only', action='store_true')
-        parser.add_argument('--print', help='Print request before sending',
-                            dest='print_body', action='store_true')
-        parser.add_argument(
-            '-m', '--method', help='HTTP method/verb to apply on the resource. '
-                                   'Defaults to GET if not given')
-        parser.add_argument('-r', '--replace', action='append',
-                            metavar='JSON body part=new value',
-                            help='Replace JSON body part with new value. Can be used multiple times')
-        parser.add_argument('-o', '--output', metavar='JSON body part',
-                            help='Output specific part of JSON response body')
-        parser.add_argument('--history', action='store_true',
-                            help='List requests sent. Use --last to use any earlier sent request body')
-        parser.add_argument(
-            '-l', '--last',
-            help=('Use last Nth request body from history. Defaults to 1 if not given. '
-                  'Use --history to list earlier sent requests'),
-            metavar='N', nargs='?', const=1, default=0, type=int)
-        return parser
+    def get_template_body(self, res, name):
+        res = self.get_resource(res)
+        return res['templates'].get(name)
 
     def get_resource(self, res):
         for config_re, resource in self.config['resources'].items():
             if re.search(config_re, res, re.IGNORECASE):
                 return resource
 
-    def generate_uri(self, uriprefix, res):
-        # TODO: If uriprefix env is not there, then ???
-        prefix = uriprefix.rstrip('/')
-        return '{uriprefix}/{resource}'.format(uriprefix=prefix, resource=res)
+    def uri_prefix(self):
+        return os.getenv(self.config['uriprefix']['env'])
 
-    def uri_resource(self, uri):
-        res_re = '^https?://.+/' + self.config['uriprefix'].lstrip('/') + '(.+)'
-        return re.search(res_re, uri).groups(0)[0]
 
-    def get_last_info(self, last):
-        last_req = last and self.history[last]
-        return
+def parse_headers(headers):
+    parsed_headers = {}
+    for header in headers:
+        name, value = header.split(':')
+        parsed_headers[name] = value
+    return parsed_headers
 
-    def execute(self, args):
-        args = self.parse_args(args)
-        # Print resources if asked
-        if args.resources:
-            print(*[r.get('help') for r in self.config['resources'].values()], sep='\n')
-            return
-        # Print history if asked
-        if args.history:
-            for item in self.history.items(False):
-                print(item.printable())
-            return
-        # Check resource
-        if not args.last and not args.resource:
-            # TODO: Raise exception instead printing and returning -1
-            print('Need resource', file=sys.stderr)
-            return -1
-        # Use last req info but args take precedence
-        last_req = args.last and self.history[args.last] or HistoryItem(None, None)
-        method = args.method or last_req.method or 'get'
-        res_arg = args.resource or last_req.resource
-        # TODO: Have option to get body from args
-        last_body = last_req.body
-        # Get config resource and URI
-        res = self.get_resource(res_arg)
-        uri = self.generate_uri(args.uriprefix, res_arg)
-        if args.headers:
-            self._setup_headers(args.headers)
-        # Get body
-        body = get_body(last_body, method, uri, self.headers, res,
-                        args.replace, args.edit, self.config['tempfile'])
-        # Any printing
-        if args.print_only:
-            print(method.upper(), uri, '\n{}'.format(body) if body else '')
-            return
-        if args.print_body:
-            print(method.upper(), uri, '\n{}'.format(body) if body else '')
-        # Store request in history
-        self.history.store_item(method.upper(), res_arg, body)
-        # Send request
-        r = requests.request(method.lower(), uri, data=body, headers=self.headers)
-        # Display response
-        content = r.text
-        if r.status_code not in success_codes:
-            print('Error status', r.status_code, '\n', content and pretty(content))
-            return -1
+
+def execute(args):
+    """
+    Execute with given args
+    """
+    # Get service
+    service = None
+    if args.service:
+        try:
+            service = Service(args.service)
+        except Exception as e:
+            raise SystemExit('Error: Service not found - ' + str(e))
+
+    process_service_args(service, args)
+
+    history = service and service.history or History(os.path.join(home, 'generic_history'))
+
+    # Print history if asked
+    if args.history:
+        for item in history.items(False):
+            print(item.printable())
+        raise SystemExit()
+
+    # Get absolute URI
+    res_arg = getattr(args, 'resource/uri')
+    uri, res_arg = get_uri(service, history, args.last, args.uriprefix, res_arg)
+
+    # Use last req info but args take precedence
+    last_req = args.last and history[args.last] or HistoryItem(None, None)
+    method = args.method or last_req.method or 'get'
+
+    # Setup headers
+    headers = service and service.headers or CaseInsensitiveDict()
+    if args.headers:
+        headers.update(parse_headers(args.headers))
+
+    # Get body
+    body = get_body(service, last_req, res_arg, args, method, uri, headers)
+
+    # Any printing
+    if args.print_only:
+        print(method.upper(), uri, '\n{}'.format(body) if body else '')
+        raise SystemExit()
+    if args.print_body:
+        print(method.upper(), uri, '\n{}'.format(body) if body else '')
+
+    # Store request in history
+    history.store_item(method.upper(), res_arg, body)
+
+    # Send request
+    r = requests.request(method.lower(), uri, data=body, headers=headers)
+
+    # Display response
+    content = r.text
+    if r.status_code not in success_codes:
+        error = 'Error status: {}'.format(r.status_code)
         if content:
-            if args.output:
-                content = json.loads(content)
-                part, prop = extract_body_part(content, args.output)
-                print(part[prop])
-            else:
-                print(pretty(content))
-        return 0
+            error += '\n{}'.format(pretty(content))
+        raise SystemExit(error)
+    if content:
+        if args.output:
+            content = json.loads(content)
+            part, prop = extract_body_part(content, args.output)
+            print(part[prop])
+        else:
+            print(pretty(content))
+    return 0
 
 
-def get_body(last_body, method, uri, headers, res, replace, edit, tmpfile):
-    "Get body of request to be sent"
-    if last_body:
-        body = json.loads(last_body)
-    elif method.upper() == 'PUT':
-        # GET the resource before PUT
-        #print 'Getting', uri
+def setup_parser():
+    """ Setup parser """
+    parser = ArgumentParser(
+        'restcli', description='CLI to access (currently) JSON-based RESTful service')
+
+    generic = parser.add_argument_group('Generic', 'Options that can work without --service')
+    generic.add_argument(
+        'resource/uri', nargs='?',
+        help=('HTTP resource after URI prefix if used with --service '
+              '(Use --resources to list possible resources). Otherwise a HTTP URI'))
+    generic.add_argument('-H', '--header', metavar='name:value',
+                         help='HTTP header. Can be used multiple times',
+                         dest='headers', action='append')
+    generic.add_argument('-u', '--user', metavar='user:password',
+                         help='HTTP Basic authentication credentials')
+    generic.add_argument(
+        '-m', '--method', help='HTTP method/verb to apply on the resource. '
+                               'Defaults to GET if not given')
+    generic.add_argument('--get', action='store_true',
+                         help='In case of PUT, GET resource and use it as body')
+    generic.add_argument('-d', '--data',
+                         help=('Request body, prefix it with @ to consider arg as filename '
+                               'whose contents will be used as data. Not necessary when used '
+                               'with --service. See --template'))
+    generic.add_argument('-e', '--edit', help='Edit request before sending. Uses $EDITOR',
+                         action='store_true')
+    generic.add_argument('-r', '--replace', action='append',
+                        metavar='JSON body part=new value',
+                        help='Replace JSON body part with new value. Can be used multiple times')
+    generic.add_argument('-o', '--output', metavar='JSON body part',
+                        help='Output specific part of JSON response body')
+    generic.add_argument('--print-only', help='Only print request going to be sent. Does not send',
+                        dest='print_only', action='store_true')
+    generic.add_argument('--print', help='Print request before sending',
+                        dest='print_body', action='store_true')
+    generic.add_argument('--history', action='store_true',
+                        help=('List requests sent. '
+                              'Use --last to use any earlier sent request body.'
+                              'Each service based on --service has its own history'))
+    generic.add_argument(
+        '-l', '--last',
+        help=('Use last Nth request body from history. Defaults to 1 if not given. '
+              'Use --history to list earlier sent requests'),
+        metavar='N', nargs='?', const=1, default=0, type=int)
+
+    # Service management
+    generic.add_argument('--install-service', metavar='Config_file',
+                         help=('Install service at ~/.restcli described in config file '
+                               'so that this service can be used via --service'))
+    generic.add_argument('-s', '--service', dest='service',
+                         help=('RESTful service installed at ~/.restcli. '
+                               'Use --install-service to install service and '
+                               '--list-services to list installed services'))
+    generic.add_argument('--list-services', dest='list_serv', action='store_true',
+                         help='List installed services')
+
+    # Service specific options
+    service = parser.add_argument_group('Service', 'Options that need --service arg')
+    service.add_argument('-t', '--template', const='default', nargs='?',
+                         help=('Use existing template as request body for the given resource. '
+                               'Uses default template if this option is provided without argument. '
+                               'See existing templates via --list-templates'))
+    service.add_argument('--list-templates', action='store_true',
+                         help='List existing templates for given resource')
+    service.add_argument('--uriprefix', help='URI prefix overriding configured one')
+    service.add_argument('--resources', help='List possible resources', action='store_true')
+
+    return parser
+
+
+def expand_resource(service, uriprefix_arg, res_arg):
+    uriprefix = uriprefix_arg or service.uri_prefix()
+    return uriprefix.rstrip('/') + '/' + res_arg
+
+
+def get_uri(service, history, last, uriprefix, res_arg):
+    if not res_arg:
+        if not last:
+            raise SystemExit('Error: Required resource/URI not given')
+        res_arg = history[last].resource
+    if res_arg.startswith('http'):
+        return res_arg, res_arg
+    else:
+        return expand_resource(service, uriprefix, res_arg), res_arg
+
+
+def process_service_args(service, args):
+    service_options = ['template', 'list_templates', 'uriprefix', 'resources']
+    if not service and any([getattr(args, attr, None) for attr in service_options]):
+        raise SystemExit('Error: Required --service argument not given')
+    # Print resources if asked
+    if args.resources:
+        print(*[r.get('help') for r in service.config['resources'].values()], sep='\n')
+        raise SystemExit()
+    # List templates if asked
+    if args.list_templates:
+        print('list templates')
+        raise SystemExit()
+    # install service
+    if args.install_service:
+        raise SystemExit()
+
+
+def get_body(service, last_req, res_arg, args, uri, method, headers):
+    """
+    Get body of request to be sent
+    """
+    # TODO: Should it take args as param?
+
+    body = None
+    # First try args.data
+    if args.data:
+        body = open(args.data[1:]).read() if args.data.startswith('@') else args.data
+    # Then try template
+    elif args.template:
+        body = service.get_template_body(res_arg, args.template)
+    # then try GET resource for PUT
+    elif args.get and method.upper() == 'PUT':
         r = requests.get(uri, headers=headers)
         if r.status_code != 200:
-            print('Error: GET {} returned {}. Content:\n{}'.format(
+            raise SystemExit('Error: GET {} returned {}. Content:\n{}'.format(
                 uri, r.status_code, pretty(r.text)))
-            return -1
         else:
             body = r.json()
-    else:
-        body = res and res.get(method)
+    # Then try history
+    elif last_req.body:
+        body = last_req.body
+
     # Replace body parts
     if body:
-        if replace:
-            body_replacements = (r.split('=') for r in replace)
-            body = update_body_parts(res, body, body_replacements)
-        body = json.dumps(body, indent=4)
-        if edit:
+        if args.replace:
+            body_replacements = (r.split('=') for r in args.replace)
+            body_d = body if isinstance(body, dict) else json.loads(body)
+            res = service and service.get_resource(res_arg)
+            body = update_body_parts(res, body_d, body_replacements)
+        body = body if isinstance(body, basestring) else json.dumps(body, indent=4)
+        if args.edit:
+            tmpfile = os.path.join(service and service.path or home, '.tmpbody')
             body = get_from_file(tmpfile, body)
     return body
 
@@ -213,7 +306,7 @@ def extract_body_part(body, name):
 
 def update_body_parts(res, body, extras):
     for name, value in extras:
-        aliases = res.get('aliases')
+        aliases = res and res.get('aliases')
         if aliases:
             name = aliases.get(name, name)
         update_body_part(body, name, value)
@@ -230,7 +323,7 @@ def get_from_file(fname, content):
     with tmpfile:
         tmpfile.write(content)
         tmpfile.flush()
-        subprocess.check_call([editor, fname])
+    subprocess.check_call([editor, fname])
     tmpfile = open(fname, 'r')
     with tmpfile:
         return tmpfile.read()
@@ -244,12 +337,8 @@ def pretty(s):
 
 
 def main(args):
-    conf_mod = args[0]
-    if conf_mod[-3:] == '.py':
-        conf_mod = conf_mod[:-3]
-    c = RestCLI(importlib.import_module(conf_mod).config)
-    return c.execute(args[1:])
-    #print c.parse_args(args[1:])
+    p = setup_parser()
+    execute(p.parse_args(args))
 
 
 if __name__ == '__main__':
