@@ -207,11 +207,6 @@ def setup_parser():
     return parser
 
 
-def expand_resource(service, uriprefix_arg, res_arg):
-    uriprefix = uriprefix_arg or service.uri_prefix()
-    return uriprefix.rstrip('/') + '/' + res_arg
-
-
 def get_uri(service, history, last, uriprefix, res_arg):
     if not res_arg:
         if not last:
@@ -220,7 +215,11 @@ def get_uri(service, history, last, uriprefix, res_arg):
     if res_arg.startswith('http'):
         return res_arg, res_arg
     else:
-        return expand_resource(service, uriprefix, res_arg), res_arg
+        uriprefix = uriprefix or service.uri_prefix()
+        if not uriprefix:
+            raise SystemExit('Error: Need uriprefix, either via config file '
+                             'or --uriprefix or provide absolute URI')
+        return uriprefix.rstrip('/') + '/' + res_arg
 
 
 def process_service_args(service, args):
