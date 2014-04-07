@@ -1,7 +1,6 @@
 TODO:
 -----
 
-* Implement list service
 * Handle absolute URI provided on configured service -
   i.e. extract resource out of it and apply options on it. Accordingly store it in service history
 * Implement list-templates

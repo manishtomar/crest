@@ -64,6 +64,7 @@ webhooks = [
 ]
 
 config = {
+    "name": "autoscale",
     "description": "Rackspace Auto Scale REST API",
     "uriprefix": {
         "regex": "/v1.0/\d+/",

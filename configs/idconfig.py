@@ -8,7 +8,8 @@ tokens_request = {
 }
 
 config = {
-    "description": "Rackspace Identity REST API",
+    "name": "raxid",
+    "description": "Rackspace Identity Service",
     "uriprefix": {
         "regex": "/v2/\d+/",
         "env": "RSID_URI_PREFIX"

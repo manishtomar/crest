@@ -190,7 +190,7 @@ def setup_parser():
                          help=('RESTful service installed at ~/.restcli. '
                                'Use --install-service to install service and '
                                '--list-services to list installed services'))
-    generic.add_argument('--list-services', dest='list_serv', action='store_true',
+    generic.add_argument('--list-services', action='store_true',
                          help='List installed services')
 
     # Service specific options
@@ -241,6 +241,14 @@ def process_service_args(service, args):
         service_path = os.path.join(home, service_name)
         os.makedirs(os.path.join(service_path, 'history'))
         shutil.copyfile(args.install_service, os.path.join(service_path, 'config.py'))
+        raise SystemExit()
+    # list services
+    if args.list_services:
+        for _dir in os.listdir(home):
+            if _dir == 'generic_history':
+                continue
+            serv = extract_config_from_file(os.path.join(home, _dir, 'config.py'))
+            print('{:<15}{}'.format(serv['name'], serv['description']))
         raise SystemExit()
 
 
