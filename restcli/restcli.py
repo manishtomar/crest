@@ -10,6 +10,7 @@ import json
 import tempfile
 import subprocess
 from operator import add
+import shutil
 
 import requests
 from requests.structures import CaseInsensitiveDict
@@ -23,18 +24,19 @@ success_codes = [200, 201, 202, 203, 204]
 home = os.path.expanduser('~/.restcli')
 
 
+def extract_config_from_file(fname):
+    g = {}
+    execfile(fname, g)
+    return g['config']
+
+
 class Service(object):
     """
     RESTful service installed at ~/.restcli
     """
     def __init__(self, name):
         self.path = os.path.join(home, name)
-
-        # TODO: This *probably* guarantees that config module will be what I expect
-        # but I don't feel comfortable doing this
-        sys.path.insert(0, self.path)
-        self.config = importlib.import_module('config').config
-
+        self.config = extract_config_from_file(os.path.join(self.path, 'config.py'))
         self.history = History(os.path.join(self.path, 'history'))
 
     @property
@@ -181,7 +183,7 @@ def setup_parser():
         metavar='N', nargs='?', const=1, default=0, type=int)
 
     # Service management
-    generic.add_argument('--install-service', metavar='Config_file',
+    generic.add_argument('--install-service', metavar='Config file path',
                          help=('Install service at ~/.restcli described in config file '
                                'so that this service can be used via --service'))
     generic.add_argument('-s', '--service', dest='service',
@@ -235,6 +237,10 @@ def process_service_args(service, args):
         raise SystemExit()
     # install service
     if args.install_service:
+        service_name = extract_config_from_file(args.install_service)['name']
+        service_path = os.path.join(home, service_name)
+        os.makedirs(os.path.join(service_path, 'history'))
+        shutil.copyfile(args.install_service, os.path.join(service_path, 'config.py'))
         raise SystemExit()
 
 

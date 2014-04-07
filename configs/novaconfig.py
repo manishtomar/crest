@@ -14,27 +14,25 @@ keypair = {
         }
 
 config = {
-    "name": "novacli",
+    "name": "nova",
     "description": "CLI to work on Racksapce Nova",
     "uriprefix": {
         "regex": "/v1.0/\d+/",
         "env": "NOVA_URI_PREFIX"
     },
     "headers": {
-        "X-Auth-Token": "AS_AUTH_TOKEN"
+        "X-Auth-Token": "RS_AUTH_TOKEN"
     },
-    "tempfile": "/tmp/nova_req.json",
     "resources": {
         "servers/?$": {
-            "post": server,
+            "templates": {"default": server},
             "aliases": {
                 "name": "server.name"
             },
             "help": "Servers"
         },
         "os-keypairs/?$": {
-            "post": keypair
+            "templates": {"default": keypair}
         }
     }
 }
-
