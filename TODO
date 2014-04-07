@@ -2,7 +2,6 @@ TODO:
 -----
 
 * WRITE DOCUMENTATION!!
-* Handle arrays properly when parsing JSON body part (-r and -o)
 * Implement install service and list service
 * Implement list-templates
 * Handle absolute URI provided on configured service -

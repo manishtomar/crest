@@ -277,6 +277,23 @@ def get_body(service, last_req, res_arg, args, uri, method, headers):
     return body
 
 
+def parse_body_part(name):
+    parts = re.split('\[(\d+)\]|(\w+)', name)
+    for part in parts:
+        if part and part != '.':
+            try:
+                yield int(part)
+            except ValueError:
+                yield part
+
+
+def extract_body_part(body, name):
+    for part in parse_body_part(name):
+        prev = body
+        body = body[part]
+    return prev, part
+
+
 def update_body_part(body, name, new_value):
     part, prop = extract_body_part(body, name)
     try:
@@ -284,24 +301,6 @@ def update_body_part(body, name, new_value):
     except ValueError:
         pass
     part[prop] = new_value
-
-
-def extract_body_part(body, name):
-    parts = name.split('.')
-    while parts:
-        part = parts.pop(0)
-        # Check of array
-        m = re.match('(.+)\[(\d+)\]$', part)
-        if m:
-            part = m.groups()[0]
-            index = int(m.groups()[1])
-        value = body.get(part)
-        if isinstance(value, dict) and parts:
-            body = value
-        elif isinstance(value, list) and parts:
-            body = value[index]
-        else:
-            return body, part
 
 
 def update_body_parts(res, body, extras):
