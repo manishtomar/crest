@@ -252,7 +252,7 @@ def process_service_args(service, args):
         raise SystemExit()
 
 
-def get_body(service, last_req, res_arg, args, uri, method, headers):
+def get_body(service, last_req, res_arg, args, method, uri, headers):
     """
     Get body of request to be sent
     """
