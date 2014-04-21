@@ -62,11 +62,7 @@ class Service(object):
 
 
 def parse_headers(headers):
-    parsed_headers = {}
-    for header in headers:
-        name, value = header.split(':')
-        parsed_headers[name] = value
-    return parsed_headers
+    return {name: value for name, value in map(lambda s: s.split(':'), headers)}
 
 
 def execute(args):
