@@ -131,7 +131,7 @@ def execute(args):
         if args.output:
             content = json.loads(content)
             part, prop = extract_body_part(content, args.output)
-            print(part[prop])
+            print(pretty(part[prop]))
         else:
             print(pretty(content))
     return 0
@@ -344,7 +344,9 @@ def get_from_file(fname, content):
 
 def pretty(s):
     try:
-        return json.dumps(json.loads(s), indent=4)
+        if isinstance(s, basestring):
+            s = json.loads(s)
+        return json.dumps(s, indent=4)
     except ValueError:
         return s
 
