@@ -278,6 +278,7 @@ def get_body(service, last_req, res_arg, args, method, uri, headers):
         if args.replace:
             body_replacements = (r.split('=') for r in args.replace)
             body_d = json.loads(body) if isinstance(body, basestring) else body
+            # TODO: Should not get resource dict directly
             res = service and service.get_resource(res_arg)
             body = update_body_parts(res, body_d, body_replacements)
         body = body if isinstance(body, basestring) else json.dumps(body, indent=4)
