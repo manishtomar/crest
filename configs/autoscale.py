@@ -2,22 +2,37 @@ policies = [
     {
         "name": "scale up by one server",
         "change": 1,
-        "cooldown": 150,
+        "cooldown": 0,
         "type": "webhook"
     },
     {
-        "name": "scale down by 5.5 percent",
-        "changePercent": -5.5,
-        "cooldown": 6,
+        "name": "scale up by percentage",
+        "changePercentage": 10,
+        "cooldown": 0,
+        "type": "webhook"
+    },
+    {
+        "name": "scale based on desiredcapacity",
+        "desiredCapacity": 10,
+        "cooldown": 0,
         "type": "webhook"
     },
     {
         "name": "cron monthly example",
         "change": 1,
-        "cooldown": 100,
+        "cooldown": 0,
         "type": "schedule",
         "args": {
             "cron": "* * 3 * *",
+        }
+    },
+    {
+        "name": "at example",
+        "change": 1,
+        "cooldown": 0,
+        "type": "schedule",
+        "args": {
+            "at": "2015-10-15T10:20:00Z"
         }
     }
 ]
@@ -88,10 +103,19 @@ config = {
             "help": "Single scaling group. Format: groups/<groupID> Ex: groups/2339-23-543"
         },
         "groups/[\w\-]+/policies/?$": {
-            "templates": {"default": policies},
+            "templates": {"default": policies, "webhook_change": [policies[0]],
+                          "webhook_change_percent": [policies[1]],
+                          "webhook_desired": [policies[2]],
+                          "schedule_cron": [policies[3]],
+                          "schedule_at": [policies[4]]},
             "help": "Scaling group's policies. Format: groups/<groupID>/policies"
         },
         "groups/[\w\-]+/policies/[\w\-]+/?$": {
+            "templates": {"default": policies[0], "webhook_change": policies[0],
+                          "webhook_change_percent": policies[1],
+                          "webhook_desired": policies[2],
+                          "schedule_cron": policies[3],
+                          "schedule_at": policies[4]},
             "help": "Scaling group's single policy. Format: groups/<groupID>/policies/<policyID>"
         },
         "groups/[\w\-]+/policies/[\w\-]+/webhooks/?$": {
