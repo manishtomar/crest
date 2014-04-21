@@ -281,7 +281,7 @@ def get_body(service, last_req, res_arg, args, method, uri, headers):
     if body:
         if args.replace:
             body_replacements = (r.split('=') for r in args.replace)
-            body_d = body if isinstance(body, dict) else json.loads(body)
+            body_d = json.loads(body) if isinstance(body, basestring) else body
             res = service and service.get_resource(res_arg)
             body = update_body_parts(res, body_d, body_replacements)
         body = body if isinstance(body, basestring) else json.dumps(body, indent=4)
