@@ -59,7 +59,8 @@ class Service(object):
                 return resource
 
     def uri_prefix(self):
-        return os.getenv(self.config['uriprefix']['env'])
+        value = self.config['uriprefix']
+        return isinstance(value, dict) and os.getenv(value['env']) or value
 
 
 def parse_headers(headers):
