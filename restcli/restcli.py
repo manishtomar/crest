@@ -42,10 +42,11 @@ class Service(object):
     @property
     def headers(self):
         headers = CaseInsensitiveDict()
-        for name, env_name in self.config['headers'].items():
-            env_value = os.getenv(env_name)
-            if env_value:
-                headers[name] = env_value
+        for name, value in self.config.get('headers', {}).items():
+            if isinstance(value, dict):
+                value = os.getenv(value['env'])
+            if value:
+                headers[name] = value
         return headers
 
     def get_template_body(self, res, name):

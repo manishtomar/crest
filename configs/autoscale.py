@@ -86,7 +86,8 @@ config = {
         "env": "AS_URI_PREFIX"
     },
     "headers": {
-        "X-Auth-Token": "RS_AUTH_TOKEN"
+        "content-type": "application/json",
+        "X-Auth-Token": {"env": "RS_AUTH_TOKEN"}
     },
     "resources": {
         "groups/?$": {
