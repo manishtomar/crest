@@ -21,7 +21,7 @@ config = {
                 "username": "auth.passwordCredentials.username",
                 "password": "auth.passwordCredentials.password",
             },
-            "help": "Authenticate with username/password"
+            "help": "Authenticate and get token"
         }
     }
 }
