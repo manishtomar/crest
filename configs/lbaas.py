@@ -33,20 +33,20 @@ metadata = {
 
 
 config = {
-    "name": "lbcli",
-    "description": "CLI to work on Racksapce Load Balancer",
+    "name": "lbaas",
+    "description": "Racksapce Load Balancer",
     "uriprefix": {
         "regex": "/v1.0/\d+/",
         "env": "LB_URI_PREFIX"
     },
     "headers": {
-        "X-Auth-Token": "AS_AUTH_TOKEN",
-        "Content-Type": "CONTENT_TYPE"
+        "X-Auth-Token": {"env": "RS_AUTH_TOKEN"},
+        "Content-Type": "application/json"
     },
     "tempfile": "/tmp/lb_req.json",
     "resources": {
         "loadbalancers/?$": {
-            "post": lb,
+            "templates": {"default": lb},
             "aliases": {
                 "name": "loadBalancer.name"
             },
@@ -56,16 +56,15 @@ config = {
             "post": nodes
         },
         "loadBalancers/[\d\-]+/nodes/?$": {
-            "post": nodes,
+            "templates": {"default": nodes},
             "help": "Load balancer's nodes. Format: loadBalancers/<load balancer ID>/nodes"
         },
         "loadBalancers/[\d\-]+/nodes/[\d\-]+/?$": {
             "help": "Load balancer's node. Format: loadBalancers/<load balancer ID>/nodes/<nodeID>"
         },
         "loadBalancers/[\d\-]+/metadata/?$": {
-            "post": metadata,
+            "templates": {"default": metadata},
             "help": "Load balancer's metadata. Format: loadBalancers/<load balancer ID>/metadata"
         }
     }
 }
-
