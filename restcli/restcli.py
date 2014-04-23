@@ -53,6 +53,9 @@ class Service(object):
         res = self.get_resource(res)
         return res['templates'].get(name)
 
+    def get_template_names(self, res):
+        return self.get_resource(res)['templates'].keys()
+
     def get_resource(self, res):
         for config_re, resource in self.config['resources'].items():
             if re.search(config_re, res, re.IGNORECASE):
@@ -92,6 +95,11 @@ def execute(args):
     # Get absolute URI
     res_arg = getattr(args, 'resource/uri')
     uri, res_arg = get_uri(service, history, args.last, args.uriprefix, res_arg)
+
+    # List templates if asked
+    if args.list_templates:
+        print(*service.get_template_names(res_arg), sep='\n')
+        raise SystemExit()
 
     # Use last req info but args take precedence
     last_req = args.last and history[args.last] or HistoryItem(None, None)
@@ -228,10 +236,6 @@ def process_service_args(service, args):
     # Print resources if asked
     if args.resources:
         print(*[r.get('help') for r in service.config['resources'].values()], sep='\n')
-        raise SystemExit()
-    # List templates if asked
-    if args.list_templates:
-        print('list templates')
         raise SystemExit()
     # install service
     if args.install_service:
