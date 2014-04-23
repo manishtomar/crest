@@ -223,8 +223,10 @@ def get_uri(service, history, last, uriprefix, res_arg):
         if not last:
             raise SystemExit('Error: Required resource/URI not given')
         res_arg = history[last].resource
-    if res_arg.startswith('http'):
-        return res_arg, res_arg
+    if service and res_arg.startswith('http'):
+        # TODO: Temp returning error. Implement it later
+        raise SystemExit(('Error: Currently not handling absolute URI with --service. '
+                          'Please provide uriprefix via --uriprefix or config'))
     else:
         return expand_resource(service, uriprefix, res_arg), res_arg
 
