@@ -126,9 +126,14 @@ as request body. Note that only tokens was given instead of full URI. The full U
 of "tokens" resource as request body. The "tokens" resource's configuration is taken from "resources" by
 matching the "tokens/?$" regexp with resource given in the command line. As described earlier `-r`
 takes JSON body part=value as argument. Here, "username" in `-r` was replaced by "auth.passwordCredentials.username"
-due to "aliases" configuration. The `-o` option works as described earlier.
+due to "aliases" configuration. The headers given in the config file are sent along with each request.
+The `-o` option works as described earlier.
 
-One can have many templates to fit different needs. In above case, you can have
+The headers and uriprefix can be taken from environment variable also. To do that, replace the value
+with `{"env": "ENV_VAR"}` JSON. So, giving `{"headers": {"X-Auth-Token": {"env": "RS_AUTH_TOKEN"}}}`
+in configu file will send `X-Auth-Token` header with value taken from `RS_AUTH_TOKEN` environment variable.
+
+There can be many templates to fit different needs. In above case, you can have
 ```
     ...
     "resources": {
@@ -136,10 +141,12 @@ One can have many templates to fit different needs. In above case, you can have
             "templates": {
                 "default": tokens_request,
                 "auth_by_api": {"auth": {"apiCredentials": {"username": "u", "apiKey": "a"}}},
-            }
-            ...
+            },
+    ...
 ```
 and use `-t auth_by_api` to send [request](http://docs.rackspace.com/auth/api/v2.0/auth-client-devguide/content/POST_authenticate_v2.0_tokens_Token_Calls.html)
-that authenticates by API key. However, you will have to use full `auth.apiCredentials.username` name in `-r` option.
+that authenticates by API key. However, you will have to use full `auth.apiCredentials.username`
+name in `-r` option since it will not find `passwordCredentials` in the request if `-r username=a` is used.
 
-Each service has its own history that can be viewed by giving `--history` along with `-s` option.
+Each service has its own separate history that can be viewed by giving `--history` along with `-s` option.
+It can be used using `-l` as described earlier.
