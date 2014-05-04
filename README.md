@@ -40,7 +40,7 @@ restcli https://identity.api.rackspacecloud.com/v2.0/tokens -m post -H "content-
 This will replace "theUsername" in request with "myusername" and "thePassword" with "mypassword".
 The -o option uses the same technique to extract specific part of the response. If the
 [response](http://docs.rackspace.com/auth/api/v2.0/auth-client-devguide/content/Sample_Request_Response-d1e64.html)
-is `{"access":{...,"token":{"...,"id": "2329893"}}}`, then only `2329893` will be printed.
+is `{"access":{...,"token":{...,"id": "2329893"}}}`, then only `2329893` will be printed.
 This works with subset of JSON response also, i.e. `-o access.token` will pretty-print JSON part.
 One can also use suffixes to access arrays in JSON. So, `a[2][1].b` will extract 5 out of
 ` {"a": [2, 8, ["some", {"b": 5}]]}`. It is ok to give arrays in the beginning also: `[0].a.b`.
