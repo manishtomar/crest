@@ -131,7 +131,7 @@ The `-o` option works as described earlier.
 
 The headers and uriprefix can be taken from environment variable also. To do that, replace the value
 with `{"env": "ENV_VAR"}` JSON. So, giving `{"headers": {"X-Auth-Token": {"env": "RS_AUTH_TOKEN"}}}`
-in configu file will send `X-Auth-Token` header with value taken from `RS_AUTH_TOKEN` environment variable.
+in config file will send `X-Auth-Token` header with value taken from `RS_AUTH_TOKEN` environment variable.
 
 There can be many templates to fit different needs. In above case, you can have
 ```
