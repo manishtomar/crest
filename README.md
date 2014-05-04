@@ -139,7 +139,7 @@ One can have many templates to fit different needs. In above case, you can have
             }
             ...
 ```
-and use `-t auth_by_api` to send request that authenticates by API key. However, you will have to use
-full `auth.apiCredentials.username` name in `-r` option.
+and use `-t auth_by_api` to send [request](http://docs.rackspace.com/auth/api/v2.0/auth-client-devguide/content/POST_authenticate_v2.0_tokens_Token_Calls.html)
+that authenticates by API key. However, you will have to use full `auth.apiCredentials.username` name in `-r` option.
 
 Each service has its own history that can be viewed by giving `--history` along with `-s` option.
