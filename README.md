@@ -106,11 +106,11 @@ config = {
 }
 ```
 The file with above contents need to be installed using `restcli --install-service raxid.py`
-before using it with `-s raxid` option. For example giving below command after installing
+before using it with `-s raxid` option. For example  giving below command
 ```
 restcli -s raxid tokens -m post -t -r username=myuname -r password=mypwd -o access.token.id
 ```
-will send `POST https://identity.api.rackspacecloud.com/v2.0/tokens` with
+after installing the service will send `POST https://identity.api.rackspacecloud.com/v2.0/tokens` with
 ```
 {
     "auth": {
