@@ -74,7 +74,8 @@ takes precedence over history.
 restcli is most useful when used with `--service` argument. When sending multiple requests to one
 particular service there are many common things like initial part of the URL, the request body with
 only part of it being different. You can specify many of these items in a config file
-(a python file) and install it using `--install-service` option. For example, below is config file
+(a python file) and install it using `--install-service` option. For example, below is
+[config file](https://github.com/manishtomar/restcli/blob/master/configs/raxid.py)
 for [Rackspace Identity Service](http://docs.rackspace.com/auth/api/v2.0/auth-client-devguide/content/QuickStart-000.html):
 ```
 tokens_request = {
