@@ -10,9 +10,10 @@ tokens_request = {
 config = {
     "name": "raxid",
     "description": "Rackspace Identity Service",
-    "uriprefix": {
-        "regex": "/v2/\d+/",
-        "env": "RSID_URI_PREFIX"
+    "uriprefix": "https://identity.api.rackspacecloud.com/v2.0",
+    "headers": {
+        "accept": "application/json",
+        "content-type": "application/json"
     },
     "resources": {
         "tokens/?$": {
@@ -21,7 +22,7 @@ config = {
                 "username": "auth.passwordCredentials.username",
                 "password": "auth.passwordCredentials.password",
             },
-            "help": "Authenticate and get token"
+            "help": "Authenticate with username/password"
         }
     }
 }
