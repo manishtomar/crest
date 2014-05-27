@@ -1,6 +1,6 @@
 from unittest import TestCase, main
 
-from restcli import extract_body_part, parse_body_part
+from crest.cli import extract_body_part, parse_body_part
 
 
 class ParseBodyTests(TestCase):
