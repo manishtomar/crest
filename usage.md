@@ -1,10 +1,10 @@
 # Usage:
 
-This has options similar to curl to fetch and provide request body. Following is help output:
+Following is help output:
 ```
 usage: crest [-h] [-H name:value] [-u user:password] [-m METHOD] [--get]
              [-d DATA] [-e] [-r JSON body part=new value]
-             [-o JSON body part] [--print-only] [--print] [--history]
+             [-o JSON response part] [--print-only] [--print] [--history]
              [-l [N]] [--install-service Config file path] [-s SERVICE]
              [--list-services] [-t [TEMPLATE]] [--list-templates]
              [--uriprefix URIPREFIX] [--resources]
@@ -17,7 +17,9 @@ crest https://identity.api.rackspacecloud.com/v2.0/tokens -m post -H "content-ty
      -d '{"auth":{"passwordCredentials":{"username":"theUserName","password":"thePassword"}}}'
 ```
 In above command, `-m` takes HTTP method in case-insensitive form, -H and -d are same as in curl.
-This will pretty print json response received.
+Just as in curl, @[full-path-to-file] can also be passed to -d, causing the contents of that
+file to be used as the request body. crest pretty-prints the response if it is able to parse the response
+as JSON. Otherwise, it prints the raw response.
 
 To change request body, you can use `-r` option that takes "JSON body part=value" as argument.
 In above case if you had request body stored in /req/tokens.json you can do
@@ -27,20 +29,25 @@ crest https://identity.api.rackspacecloud.com/v2.0/tokens -m post -H "content-ty
             -r auth.passwordCredentials.username=myusername -r auth.passwordCredentials.password=mypassword \
             -o access.token.id
 ```
-This will replace "theUsername" in request with "myusername" and "thePassword" with "mypassword".
-The -o option uses the same technique to extract specific part of the response. If the
+This will take contents of /reqs/tokens.json file and replace "theUsername" with "myusername" and "thePassword" with "mypassword"
+before sending request, i.e. `{"auth":{"passwordCredentials":{"username":"myusername","password":"mypassword"}}}`
+will be the sent request.
+It does this by splitting the "JSON body part" based on '.' and accessing the JSON content.
+It is similar to accessing properties of JavaScript object. One can also index arrays in JSON.
+So, `a[2][1].b` will extract 5 out of `{"a": [2, 8, ["some", {"b": 5}]]}`.
+It is ok to give arrays in the beginning also: `[0].a.b`.
+
+**Exracting response part**: The same technique is used to extract specific part of the response using -o option. If the
 [response](http://docs.rackspace.com/auth/api/v2.0/auth-client-devguide/content/Sample_Request_Response-d1e64.html)
 is `{"access":{...,"token":{...,"id": "2329893"}}}`, then only `2329893` will be printed.
 This works with subset of JSON response also, i.e. `-o access.token` will pretty-print JSON part.
-One can also use suffixes to access arrays in JSON. So, `a[2][1].b` will extract 5 out of
-` {"a": [2, 8, ["some", {"b": 5}]]}`. It is ok to give arrays in the beginning also: `[0].a.b`.
 
 If you want to be sure what request is being sent, you can use`--print-only` option. This will
 print the URI and request body but will not send it. To send it while viewing, use `--print`.
 
 Another way (my favorite) to change the request is using `-e` option. This will open request body
-in `$EDITOR` for editing before sending it. The content of the file will be after applying
-all the `-r` options.
+in `$EDITOR` for editing before sending it. The contents in the editor are what will be sent as the
+request body i.e. all the `-r` options have already been applied.
 
 ## History:
 Each request sent to absolute URI is stored in `~/.crest/generic_history/` directory. You can

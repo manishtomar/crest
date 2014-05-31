@@ -4,6 +4,11 @@
 A generic CLI to access any RESTful service with a little bit of configuration.
 Think of it as something in between curl and proper CLI.
 
+It has options similar to curl to fetch and provide request body. ``-d, -H and -d`` are
+same as curl. ``-X`` is changed to ``-m``. Currently, the tool uses ``requests`` to send
+HTTP requests. In future, it may just be wrapper on top of curl delegating all options to
+curl.
+
 With following `configuration <https://github.com/manishtomar/crest/blob/master/configs/raxid.py>`_ in ``~/.crest/raxid/config.py``::
 
    tokens_request = {
