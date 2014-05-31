@@ -362,10 +362,10 @@ def pretty(s):
         return s
 
 
-def main(args):
+def main():
     p = setup_parser()
-    execute(p.parse_args(args))
+    execute(p.parse_args(sys.argv[1:]))
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
