@@ -1,15 +1,5 @@
-# "Curl"REST API Command line client
+# Usage:
 
-A generic CLI to access any RESTful service with a little bit of configuration.
-Think of it as something in between curl and proper CLI.
-
-## Installation:
-```
-pip install crest
-```
-This will create `.crest` directory in $HOME and store configurations including history there
-
-## Usage:
 This has options similar to curl to fetch and provide request body. Following is help output:
 ```
 usage: crest [-h] [-H name:value] [-u user:password] [-m METHOD] [--get]
@@ -52,7 +42,7 @@ Another way (my favorite) to change the request is using `-e` option. This will 
 in `$EDITOR` for editing before sending it. The content of the file will be after applying
 all the `-r` options.
 
-### History:
+## History:
 Each request sent to absolute URI is stored in `~/.crest/generic_history/` directory. You can
 view previously sent request (called history) using `--history` option. It will display in chronological
 order with most recent one on top. For example, in following output:
@@ -70,7 +60,7 @@ In above case, giving `crest -l 1 -m post` will send `POST http://192.168.24.128
 It takes the URI from history and applies method given in cmd-line arg. The command-line arguments always
 takes precedence over history.
 
-### Service:
+## Service:
 crest is most useful when used with `--service` argument. When sending multiple requests to one
 particular service there are many common things like initial part of the URL, the request body with
 only part of it being different. You can specify many of these items in a config file
