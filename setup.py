@@ -20,7 +20,7 @@ setup(name=package_name,
 
       entry_points={'console_scripts': ['crest = crest.cli:main']},
 
-      license='Apache 2.0',
+      license='MIT',
       keywords="restful cli",
       classifiers=[
           "Development Status :: 3 - Alpha",
