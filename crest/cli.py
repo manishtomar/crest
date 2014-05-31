@@ -21,7 +21,7 @@ from history import History, HistoryItem
 success_codes = [200, 201, 202, 203, 204]
 
 
-home = os.path.expanduser('~/.restcli')
+home = os.path.expanduser('~/.crest')
 
 
 def extract_config_from_file(fname):
@@ -32,7 +32,7 @@ def extract_config_from_file(fname):
 
 class Service(object):
     """
-    RESTful service installed at ~/.restcli
+    RESTful service installed at ~/.crest
     """
     def __init__(self, name):
         self.path = os.path.join(home, name)
@@ -63,7 +63,7 @@ class Service(object):
 
     def uri_prefix(self):
         value = self.config['uriprefix']
-        return isinstance(value, dict) and os.getenv(value['env']) or value
+        return os.getenv(value['env']) if isinstance(value, dict) else value
 
 
 def parse_headers(headers):
@@ -146,7 +146,7 @@ def execute(args):
 def setup_parser():
     """ Setup parser """
     parser = ArgumentParser(
-        'restcli', description='CLI to access (currently) JSON-based RESTful service')
+        'crest', description='CLI to access (currently) JSON-based RESTful service')
 
     generic = parser.add_argument_group('Generic', 'Options that can work without --service')
     generic.add_argument(
@@ -190,10 +190,10 @@ def setup_parser():
 
     # Service management
     generic.add_argument('--install-service', metavar='Config file path',
-                         help=('Install service at ~/.restcli described in config file '
+                         help=('Install service at ~/.crest described in config file '
                                'so that this service can be used via --service'))
     generic.add_argument('-s', '--service', dest='service',
-                         help=('RESTful service installed at ~/.restcli. '
+                         help=('RESTful service installed at ~/.crest. '
                                'Use --install-service to install service and '
                                '--list-services to list installed services'))
     generic.add_argument('--list-services', action='store_true',
@@ -215,6 +215,9 @@ def setup_parser():
 
 def expand_resource(service, uriprefix_arg, res_arg):
     uriprefix = uriprefix_arg or service.uri_prefix()
+    if not uriprefix:
+        raise SystemExit('Error: uriprefix not found. '
+                          'Please provide it via --uriprefix or config')
     return uriprefix.rstrip('/') + '/' + res_arg
 
 
