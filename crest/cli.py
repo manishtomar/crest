@@ -63,7 +63,7 @@ class Service(object):
 
     def uri_prefix(self):
         value = self.config['uriprefix']
-        return isinstance(value, dict) and os.getenv(value['env']) or value
+        return os.getenv(value['env']) if isinstance(value, dict) else value
 
 
 def parse_headers(headers):
@@ -215,6 +215,9 @@ def setup_parser():
 
 def expand_resource(service, uriprefix_arg, res_arg):
     uriprefix = uriprefix_arg or service.uri_prefix()
+    if not uriprefix:
+        raise SystemExit('Error: uriprefix not found. '
+                          'Please provide it via --uriprefix or config')
     return uriprefix.rstrip('/') + '/' + res_arg
 
 
