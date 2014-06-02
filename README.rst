@@ -4,7 +4,7 @@
 A generic CLI to access any RESTful service with a little bit of configuration.
 Think of it as something in between curl and proper CLI.
 
-It has options similar to curl to fetch and provide request body. ``-d, -H and -d`` are
+It has options similar to curl to fetch and provide request body. ``-d, -H`` and ``-d`` are
 same as curl. ``-X`` is changed to ``-m``. Currently, the tool uses ``requests`` to send
 HTTP requests. In future, it may just be wrapper on top of curl delegating all options to
 curl.
@@ -51,5 +51,5 @@ Installation
 ::
 
    pip install crest
+   mkdir -p ~/.crest/generic_history  # for --history and --service to work
 
-This will create a `.crest` directory in $HOME and store configurations including history there
