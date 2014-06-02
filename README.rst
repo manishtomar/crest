@@ -53,3 +53,8 @@ Installation
    pip install crest
    mkdir -p ~/.crest/generic_history  # for --history and --service to work
 
+Thanks
+------
+
+Thanks to Rackspace for having a culture of hacking on side projects and allowing me to work on this, and having an
+*excellent* `open source employee contribution policy <https://www.rackspace.com/blog/rackspaces-policy-on-contributing-to-open-source/>`_
