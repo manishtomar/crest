@@ -6,16 +6,20 @@ Think of it as something in between curl and proper CLI.
 
 Features:
 ---------
-   * Replace parts of JSON request body while sending the request using simple ``object.property[index]`` notation
-   * Print only part of JSON response using above described notation
-   * History: Previously sent request are stored and can be resent using ``--last`` option
-   * Templates: Store preset requests of a particular URL and send them using ``--template`` option
-   * Service config: Store common headers, URL prefix, preset requests of a particular service in config
+
+- Replace parts of JSON request body while sending the request using simple ``object.property[index]`` notation
+- Print only part of JSON response using above described notation
+- History: Previously sent request are stored and can be resent using ``--last`` option
+- Templates: Store preset requests of a particular URL and send them using ``--template`` option
+- Service config: Store common headers, URL prefix, preset requests of a particular service in config
 
 It has options similar to curl to fetch and provide request body. ``-d, -H`` and ``-d`` are
 same as curl. ``-X`` is changed to ``-m``. Currently, the tool uses ``requests`` to send
 HTTP requests. In future, it may just be wrapper on top of curl delegating all options to
 curl.
+
+Simple usage:
+-------------
 
 With following `configuration <https://github.com/manishtomar/crest/blob/master/configs/raxid.py>`_ in ``~/.crest/raxid/config.py``::
 
