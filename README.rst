@@ -18,7 +18,7 @@ same as curl. ``-X`` is changed to ``-m``. Currently, the tool uses ``requests``
 HTTP requests. In future, it may just be wrapper on top of curl delegating all options to
 curl.
 
-Simple usage:
+Sample usage:
 -------------
 
 With following `configuration <https://github.com/manishtomar/crest/blob/master/configs/raxid.py>`_ in ``~/.crest/raxid/config.py``::
