@@ -56,7 +56,7 @@ and extract token using following command::
 
    crest -s raxid tokens -m post -t -r username=myuname -r password=mypwd -o access.token.id
 
-For more details check `usage <https://github.com/manishtomar/crest/blob/master/usage.md>`_
+For more details check `usage <https://github.com/manishtomar/crest/blob/master/usage.md>`_. NOTE: Be careful as this will store request including password in history
 
 Installation
 ------------
